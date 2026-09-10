@@ -14,10 +14,11 @@ from .models import (
     SupplierOrderPreview,
 )
 from .monitor import build_monitoring_report
+from .notifier import notify_alerts
 from .predictor import predict_product
 from .storage import get_latest_snapshot, get_snapshots, init_db, save_snapshot
 
-APP_VERSION = "0.8.0"
+APP_VERSION = "0.9.0"
 
 app = FastAPI(
     title="AI Inventory Restock Predictor",
@@ -135,6 +136,13 @@ def alerts(request: InventoryRequest) -> dict:
     report["alert_count"] = len(active)
     report["critical_count"] = sum(item["urgency"] == "critical" for item in active)
     return {"alerts": report}
+
+
+@app.post("/notifications/test")
+def test_notifications() -> dict:
+    alerts = get_active_alerts()
+    sent = notify_alerts(alerts)
+    return {"sent": sent, "backend": "console"}
 
 
 @app.get("/alerts/active")
