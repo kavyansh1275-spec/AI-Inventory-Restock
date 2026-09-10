@@ -1,14 +1,9 @@
 import threading
-import time
 from collections.abc import Callable
 
 
 class InventoryMonitor:
-    """Simple local polling loop for an inventory check callback.
-
-    The loop is intentionally lightweight and dependency-free. The callback
-    decides how inventory is loaded and what to do with the monitoring report.
-    """
+    """Lightweight dependency-free background polling loop."""
 
     def __init__(self, check: Callable[[], object], interval_seconds: int = 3600):
         if interval_seconds < 60:
@@ -28,7 +23,6 @@ class InventoryMonitor:
     def start(self) -> None:
         if self.running:
             return
-
         self._stop_event.clear()
 
         def loop() -> None:
@@ -36,7 +30,6 @@ class InventoryMonitor:
                 try:
                     self.check()
                 except Exception:
-                    # Monitoring must continue after a transient data-source error.
                     pass
                 self._stop_event.wait(self.interval_seconds)
 
