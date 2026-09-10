@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Inventory Restock Predictor</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="container">
+    <header>
+      <div>
+        <p class="eyebrow">INVENTORY INTELLIGENCE</p>
+        <h1>Restock Predictor</h1>
+        <p class="subtitle">Upload sales data and instantly see which products need attention.</p>
+      </div>
+      <div class="status"><span></span> Local engine</div>
+    </header>
+
+    <section class="toolbar">
+      <button id="sampleBtn">Load sample data</button>
+      <label class="file-button">Import CSV<input id="csvInput" type="file" accept=".csv"></label>
+      <button id="analyzeBtn" class="primary">Analyze inventory</button>
+    </section>
+
+    <p id="message" class="message"></p>
+
+    <section class="cards">
+      <div class="card"><span>Total products</span><strong id="total">0</strong></div>
+      <div class="card"><span>Healthy</span><strong id="healthy">0</strong></div>
+      <div class="card warning"><span>Need restock</span><strong id="restock">0</strong></div>
+      <div class="card critical"><span>Critical</span><strong id="critical">0</strong></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div><h2>Inventory overview</h2><p>Predictions are calculated locally from recent daily sales.</p></div>
+        <span id="productCount">0 products</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Product</th><th>Stock</th><th>Avg/day</th><th>Days left</th><th>Reorder point</th><th>Suggested order</th><th>Urgency</th></tr></thead>
+          <tbody id="tableBody"><tr><td colspan="7" class="empty">Load sample data or import a CSV to begin.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
