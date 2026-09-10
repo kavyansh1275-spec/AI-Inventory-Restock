@@ -12,7 +12,7 @@
       <div>
         <p class="eyebrow">INVENTORY INTELLIGENCE</p>
         <h1>Restock Predictor</h1>
-        <p class="subtitle">Upload sales data and instantly see which products need attention.</p>
+        <p class="subtitle">Monitor stock risk, supplier orders and previous inventory analyses.</p>
       </div>
       <div class="status"><span></span> Local engine</div>
     </header>
@@ -21,6 +21,7 @@
       <button id="sampleBtn">Load sample data</button>
       <label class="file-button">Import CSV<input id="csvInput" type="file" accept=".csv"></label>
       <button id="analyzeBtn" class="primary">Analyze inventory</button>
+      <button id="refreshBtn">Refresh history</button>
     </section>
 
     <p id="message" class="message"></p>
@@ -42,6 +43,18 @@
           <thead><tr><th>Product</th><th>Stock</th><th>Avg/day</th><th>Days left</th><th>Reorder point</th><th>Suggested order</th><th>Urgency</th></tr></thead>
           <tbody id="tableBody"><tr><td colspan="7" class="empty">Load sample data or import a CSV to begin.</td></tr></tbody>
         </table>
+      </div>
+    </section>
+
+    <section class="two-column">
+      <div class="panel">
+        <div class="panel-head"><div><h2>Supplier order preview</h2><p>Prepared orders require manual confirmation.</p></div></div>
+        <div id="orders" class="panel-body"><p class="empty">Analyze inventory to generate an order preview.</p></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><div><h2>Analysis history</h2><p>Saved locally in SQLite.</p></div></div>
+        <div id="history" class="history-list"><p class="empty">No saved analyses yet.</p></div>
       </div>
     </section>
   </main>
