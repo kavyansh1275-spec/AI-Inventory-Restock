@@ -6,12 +6,13 @@ A lightweight inventory forecasting MVP for small businesses.
 
 Given product stock and recent sales history, the system estimates:
 
-- average daily sales
+- average and recent daily sales
+- sales trend
+- sales variability and safety stock
 - days of stock remaining
 - reorder point
 - suggested reorder quantity
-- restock status
-- urgency level
+- restock status and urgency
 
 The MVP is intentionally deterministic and requires **no paid AI API**. This keeps the first version free to build and easy to validate with real businesses.
 
@@ -55,22 +56,6 @@ A ready-to-test file is included as `sample_inventory.csv`.
 
 `POST /predict`
 
-```json
-{
-  "products": [
-    {
-      "name": "Protein Powder",
-      "current_stock": 18,
-      "minimum_stock": 10,
-      "daily_sales": [3, 4, 2, 3, 5, 3, 4],
-      "lead_time_days": 5,
-      "target_days": 14,
-      "supplier": "Fitness Supply Co."
-    }
-  ]
-}
-```
-
 ### CSV prediction
 
 `POST /predict/csv` accepts a `.csv` upload and returns the same structured prediction response.
@@ -78,6 +63,15 @@ A ready-to-test file is included as `sample_inventory.csv`.
 ### Health
 
 `GET /health` returns the service health and version.
+
+### Inventory history
+
+Every successful analysis is stored locally in SQLite. No external database is required.
+
+- `GET /history?limit=20` returns recent analysis snapshots.
+- `GET /history/latest` returns the newest snapshot.
+
+The database file is `inventory.db` and can be deleted at any time to reset local history.
 
 ## Testing
 
@@ -91,9 +85,9 @@ This is a **standalone product**. It does not depend on the `AI-Workflow-Orchest
 
 ## Roadmap
 
-1. Free local MVP dashboard + CSV analysis — current
-2. Better forecasting with sales trends and variability
-3. Inventory history and saved products
+1. Free local MVP dashboard + CSV analysis — complete
+2. Better forecasting with sales trends and variability — complete
+3. Inventory history and saved analysis — complete
 4. Supplier/order workflow
 5. Optional AI explanations
 6. Business integrations after validation
