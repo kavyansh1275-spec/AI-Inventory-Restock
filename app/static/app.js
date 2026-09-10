@@ -34,13 +34,70 @@ async function analyze() {
   try {
     const response = await fetch("/predict", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({products})});
     if (!response.ok) throw new Error(await response.text());
-    render(await response.json());
-    setMessage("Analysis complete.");
+    const data = await response.json();
+    render(data);
+    await loadOrders();
+    await loadHistory();
+    setMessage("Analysis complete and saved locally.");
   } catch (error) { setMessage(`Analysis failed: ${error.message}`); }
 }
 
-$("sampleBtn").addEventListener("click", () => { products = structuredClone(sampleProducts); render({products: [], summary: {}}); setMessage("Sample data loaded. Click Analyze inventory."); });
+async function loadOrders() {
+  if (!products.length) return;
+  try {
+    const response = await fetch("/orders/preview", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({products})});
+    if (!response.ok) throw new Error(await response.text());
+    const data = await response.json();
+    const orders = data.orders || [];
+    const missing = data.products_without_supplier || [];
+
+    let html = orders.length ? orders.map(order => `
+      <div class="order-card">
+        <div class="order-head"><strong>${esc(order.supplier)}</strong><span>${order.total_units} units</span></div>
+        ${order.items.map(item => `<div class="order-item"><span>${esc(item.product)}</span><span>${item.quantity} · ${esc(item.urgency)}</span></div>`).join("")}
+        <small>Manual confirmation required</small>
+      </div>`).join("") : '<p class="empty">No supplier orders are currently needed.</p>';
+
+    if (missing.length) {
+      html += `<div class="notice"><strong>Supplier missing</strong><p>${missing.map(esc).join(", ")}</p><small>Add a supplier in the CSV before ordering.</small></div>`;
+    }
+    $("orders").innerHTML = html;
+  } catch (error) {
+    $("orders").innerHTML = `<p class="empty">Could not load order preview.</p>`;
+  }
+}
+
+async function loadHistory() {
+  try {
+    const response = await fetch("/history?limit=10");
+    if (!response.ok) throw new Error(await response.text());
+    const data = await response.json();
+    const snapshots = data.snapshots || [];
+    $("history").innerHTML = snapshots.length ? snapshots.map(snapshot => {
+      const summary = snapshot.products?.summary || {};
+      const productsSaved = Array.isArray(snapshot.products?.products) ? snapshot.products.products.length : 0;
+      return `<div class="history-item"><div><strong>Analysis #${snapshot.id}</strong><small>${esc(snapshot.created_at)}</small></div><span>${productsSaved} products · ${summary.products_needing_restock ?? 0} restock</span></div>`;
+    }).join("") : '<p class="empty">No saved analyses yet.</p>';
+  } catch (error) {
+    $("history").innerHTML = '<p class="empty">Could not load history.</p>';
+  }
+}
+
+$("sampleBtn").addEventListener("click", () => {
+  products = structuredClone(sampleProducts);
+  render({products: [], summary: {}});
+  $("orders").innerHTML = '<p class="empty">Analyze inventory to generate an order preview.</p>';
+  setMessage("Sample data loaded. Click Analyze inventory.");
+});
+
 $("analyzeBtn").addEventListener("click", analyze);
+$("refreshBtn").addEventListener("click", async () => {
+  setMessage("Refreshing history...");
+  await loadHistory();
+  if (products.length) await loadOrders();
+  setMessage("Dashboard refreshed.");
+});
+
 $("csvInput").addEventListener("change", async event => {
   const file = event.target.files[0];
   if (!file) return;
@@ -49,7 +106,12 @@ $("csvInput").addEventListener("change", async event => {
   try {
     const response = await fetch("/predict/csv", {method: "POST", body: form});
     if (!response.ok) throw new Error(await response.text());
-    render(await response.json());
-    setMessage("CSV analyzed successfully.");
+    const data = await response.json();
+    render(data);
+    await loadOrders();
+    await loadHistory();
+    setMessage("CSV analyzed and saved successfully.");
   } catch (error) { setMessage(`CSV import failed: ${error.message}`); }
 });
+
+loadHistory();
