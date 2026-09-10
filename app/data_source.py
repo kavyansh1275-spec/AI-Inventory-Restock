@@ -18,7 +18,8 @@ class CSVInventorySource:
 
     def load(self) -> list[Product]:
         text = self.path.read_text(encoding="utf-8-sig")
-        return parse_inventory_csv(text)
+        raw_products = parse_inventory_csv(text)
+        return [Product.model_validate(product) for product in raw_products]
 
     def load_if_changed(self) -> list[Product] | None:
         if not self.changed():
