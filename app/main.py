@@ -6,9 +6,11 @@ from .csv_parser import parse_inventory_csv
 from .models import InventoryRequest, InventoryResponse
 from .predictor import predict_product
 
+APP_VERSION = "0.3.0"
+
 app = FastAPI(
     title="AI Inventory Restock Predictor",
-    version="0.2.0",
+    version=APP_VERSION,
     description="Predicts inventory risk and suggested reorder quantities from recent sales.",
 )
 
@@ -19,12 +21,14 @@ def analyze_products(products):
     predictions = [predict_product(product) for product in products]
     restock_count = sum(item.needs_restock for item in predictions)
     critical_count = sum(item.urgency == "critical" for item in predictions)
+    increasing_count = sum(item.sales_trend == "increasing" for item in predictions)
     return InventoryResponse(
         products=predictions,
         summary={
             "total_products": len(predictions),
             "products_needing_restock": restock_count,
             "critical_products": critical_count,
+            "products_with_increasing_sales": increasing_count,
         },
     )
 
@@ -36,7 +40,7 @@ def root():
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "healthy", "version": "0.2.0"}
+    return {"status": "healthy", "version": APP_VERSION}
 
 
 @app.post("/predict", response_model=InventoryResponse)
