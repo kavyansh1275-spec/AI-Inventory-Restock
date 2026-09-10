@@ -1,3 +1,4 @@
+import os
 from collections import defaultdict
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -5,51 +6,49 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .alert_storage import get_active_alerts, get_alert_history, init_alerts_db, persist_alerts
+from .auto_monitor import build_auto_monitor
 from .csv_parser import parse_inventory_csv
-from .models import (
-    InventoryRequest,
-    InventoryResponse,
-    OrderPreviewResponse,
-    SupplierOrderItem,
-    SupplierOrderPreview,
-)
+from .models import InventoryRequest, InventoryResponse, OrderPreviewResponse, SupplierOrderItem, SupplierOrderPreview
 from .monitor import build_monitoring_report
 from .notifier import notify_alerts
 from .predictor import predict_product
+from .scheduler import InventoryMonitor
 from .storage import get_latest_snapshot, get_snapshots, init_db, save_snapshot
 
-APP_VERSION = "0.9.0"
-
-app = FastAPI(
-    title="AI Inventory Restock Predictor",
-    version=APP_VERSION,
-    description="Predicts inventory risk and suggested reorder quantities from recent sales.",
-)
-
+APP_VERSION = "1.0.0"
+app = FastAPI(title="AI Inventory Restock Predictor", version=APP_VERSION, description="Predicts inventory risk and suggested reorder quantities from recent sales.")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+_auto_monitor = None
+_scheduler = None
 
 
 @app.on_event("startup")
 def startup() -> None:
+    global _auto_monitor, _scheduler
     init_db()
     init_alerts_db()
+    if os.getenv("INVENTORY_AUTO_MONITOR", "false").lower() == "true":
+        _auto_monitor = build_auto_monitor()
+        interval = int(os.getenv("INVENTORY_MONITOR_INTERVAL", "3600"))
+        _scheduler = InventoryMonitor(_auto_monitor.check, interval_seconds=interval)
+        _scheduler.start()
+
+
+@app.on_event("shutdown")
+def shutdown() -> None:
+    if _scheduler:
+        _scheduler.stop()
 
 
 def analyze_products(products):
     predictions = [predict_product(product) for product in products]
-    restock_count = sum(item.needs_restock for item in predictions)
-    critical_count = sum(item.urgency == "critical" for item in predictions)
-    increasing_count = sum(item.sales_trend == "increasing" for item in predictions)
-
-    response = InventoryResponse(
-        products=predictions,
-        summary={
-            "total_products": len(predictions),
-            "products_needing_restock": restock_count,
-            "critical_products": critical_count,
-            "products_with_increasing_sales": increasing_count,
-        },
-    )
+    response = InventoryResponse(products=predictions, summary={
+        "total_products": len(predictions),
+        "products_needing_restock": sum(item.needs_restock for item in predictions),
+        "critical_products": sum(item.urgency == "critical" for item in predictions),
+        "products_with_increasing_sales": sum(item.sales_trend == "increasing" for item in predictions),
+    })
     save_snapshot(response.model_dump())
     return response
 
@@ -57,98 +56,70 @@ def analyze_products(products):
 def build_order_preview(predictions) -> OrderPreviewResponse:
     grouped = defaultdict(list)
     without_supplier = []
-
     for item in predictions:
         if not item.needs_restock or item.suggested_reorder_quantity <= 0:
             continue
         if not item.supplier:
             without_supplier.append(item.name)
             continue
-
-        grouped[item.supplier].append(
-            SupplierOrderItem(
-                product=item.name,
-                supplier=item.supplier,
-                quantity=item.suggested_reorder_quantity,
-                urgency=item.urgency,
-            )
-        )
-
-    orders = [
-        SupplierOrderPreview(
-            supplier=supplier,
-            items=items,
-            total_units=round(sum(item.quantity for item in items), 2),
-        )
-        for supplier, items in sorted(grouped.items())
-    ]
-
-    return OrderPreviewResponse(
-        orders=orders,
-        products_without_supplier=sorted(without_supplier),
-    )
+        grouped[item.supplier].append(SupplierOrderItem(product=item.name, supplier=item.supplier, quantity=item.suggested_reorder_quantity, urgency=item.urgency))
+    orders = [SupplierOrderPreview(supplier=supplier, items=items, total_units=round(sum(item.quantity for item in items), 2)) for supplier, items in sorted(grouped.items())]
+    return OrderPreviewResponse(orders=orders, products_without_supplier=sorted(without_supplier))
 
 
 @app.get("/", include_in_schema=False)
 def root():
     return FileResponse("app/static/index.html")
 
-
 @app.get("/health")
 def health() -> dict:
-    return {"status": "healthy", "version": APP_VERSION}
-
+    return {"status": "healthy", "version": APP_VERSION, "auto_monitor": bool(_scheduler and _scheduler.running)}
 
 @app.post("/predict", response_model=InventoryResponse)
 def predict(request: InventoryRequest) -> InventoryResponse:
     return analyze_products(request.products)
 
-
 @app.post("/predict/csv", response_model=InventoryResponse)
 async def predict_csv(file: UploadFile = File(...)) -> InventoryResponse:
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Please upload a .csv file")
-
     try:
         raw = await file.read()
-        text = raw.decode("utf-8-sig")
-        products = parse_inventory_csv(text)
-        request = InventoryRequest(products=products)
-        return analyze_products(request.products)
+        products = parse_inventory_csv(raw.decode("utf-8-sig"))
+        return analyze_products(InventoryRequest(products=products).products)
     except UnicodeDecodeError:
         raise HTTPException(status_code=400, detail="CSV must be UTF-8 encoded")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-
 @app.post("/orders/preview", response_model=OrderPreviewResponse)
 def order_preview(request: InventoryRequest) -> OrderPreviewResponse:
-    predictions = [predict_product(product) for product in request.products]
-    return build_order_preview(predictions)
-
+    return build_order_preview([predict_product(product) for product in request.products])
 
 @app.post("/alerts")
 def alerts(request: InventoryRequest) -> dict:
-    predictions = [predict_product(product) for product in request.products]
-    report = build_monitoring_report(predictions)
+    report = build_monitoring_report([predict_product(product) for product in request.products])
     active = persist_alerts(report["alerts"])
     report["alerts"] = active
     report["alert_count"] = len(active)
     report["critical_count"] = sum(item["urgency"] == "critical" for item in active)
     return {"alerts": report}
 
-
 @app.post("/notifications/test")
 def test_notifications() -> dict:
     alerts = get_active_alerts()
-    sent = notify_alerts(alerts)
-    return {"sent": sent, "backend": "console"}
+    return {"sent": notify_alerts(alerts), "backend": "console"}
 
+@app.post("/monitor/run")
+def run_monitor_now() -> dict:
+    global _auto_monitor
+    if _auto_monitor is None:
+        _auto_monitor = build_auto_monitor()
+    return _auto_monitor.check()
 
 @app.get("/alerts/active")
 def active_alerts() -> dict:
     return {"alerts": get_active_alerts()}
-
 
 @app.get("/alerts/history")
 def alert_history(limit: int = 50) -> dict:
@@ -156,15 +127,12 @@ def alert_history(limit: int = 50) -> dict:
         raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
     return {"alerts": get_alert_history(limit)}
 
-
 @app.get("/history")
 def history(limit: int = 20) -> dict:
     if limit < 1 or limit > 100:
         raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
     return {"snapshots": get_snapshots(limit)}
 
-
 @app.get("/history/latest")
 def latest_history() -> dict:
-    snapshot = get_latest_snapshot()
-    return {"snapshot": snapshot}
+    return {"snapshot": get_latest_snapshot()}
