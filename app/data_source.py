@@ -1,4 +1,3 @@
-import csv
 from pathlib import Path
 
 from .csv_parser import parse_inventory_csv
@@ -15,11 +14,7 @@ class CSVInventorySource:
     def changed(self) -> bool:
         if not self.path.exists():
             return False
-        mtime = self.path.stat().st_mtime_ns
-        if mtime != self._last_mtime_ns:
-            self._last_mtime_ns = mtime
-            return True
-        return False
+        return self.path.stat().st_mtime_ns != self._last_mtime_ns
 
     def load(self) -> list[Product]:
         text = self.path.read_text(encoding="utf-8-sig")
@@ -28,4 +23,6 @@ class CSVInventorySource:
     def load_if_changed(self) -> list[Product] | None:
         if not self.changed():
             return None
-        return self.load()
+        products = self.load()
+        self._last_mtime_ns = self.path.stat().st_mtime_ns
+        return products
