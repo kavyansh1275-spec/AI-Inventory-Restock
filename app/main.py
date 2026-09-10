@@ -1,13 +1,21 @@
+from collections import defaultdict
+
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .csv_parser import parse_inventory_csv
-from .models import InventoryRequest, InventoryResponse
+from .models import (
+    InventoryRequest,
+    InventoryResponse,
+    OrderPreviewResponse,
+    SupplierOrderItem,
+    SupplierOrderPreview,
+)
 from .predictor import predict_product
 from .storage import get_latest_snapshot, get_snapshots, init_db, save_snapshot
 
-APP_VERSION = "0.4.0"
+APP_VERSION = "0.5.0"
 
 app = FastAPI(
     title="AI Inventory Restock Predictor",
@@ -42,6 +50,41 @@ def analyze_products(products):
     return response
 
 
+def build_order_preview(predictions) -> OrderPreviewResponse:
+    grouped = defaultdict(list)
+    without_supplier = []
+
+    for item in predictions:
+        if not item.needs_restock or item.suggested_reorder_quantity <= 0:
+            continue
+        if not item.supplier:
+            without_supplier.append(item.name)
+            continue
+
+        grouped[item.supplier].append(
+            SupplierOrderItem(
+                product=item.name,
+                supplier=item.supplier,
+                quantity=item.suggested_reorder_quantity,
+                urgency=item.urgency,
+            )
+        )
+
+    orders = [
+        SupplierOrderPreview(
+            supplier=supplier,
+            items=items,
+            total_units=round(sum(item.quantity for item in items), 2),
+        )
+        for supplier, items in sorted(grouped.items())
+    ]
+
+    return OrderPreviewResponse(
+        orders=orders,
+        products_without_supplier=sorted(without_supplier),
+    )
+
+
 @app.get("/", include_in_schema=False)
 def root():
     return FileResponse("app/static/index.html")
@@ -72,6 +115,12 @@ async def predict_csv(file: UploadFile = File(...)) -> InventoryResponse:
         raise HTTPException(status_code=400, detail="CSV must be UTF-8 encoded")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/orders/preview", response_model=OrderPreviewResponse)
+def order_preview(request: InventoryRequest) -> OrderPreviewResponse:
+    predictions = [predict_product(product) for product in request.products]
+    return build_order_preview(predictions)
 
 
 @app.get("/history")
