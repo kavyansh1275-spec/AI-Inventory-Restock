@@ -5,8 +5,9 @@ from fastapi.staticfiles import StaticFiles
 from .csv_parser import parse_inventory_csv
 from .models import InventoryRequest, InventoryResponse
 from .predictor import predict_product
+from .storage import get_latest_snapshot, get_snapshots, init_db, save_snapshot
 
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.4.0"
 
 app = FastAPI(
     title="AI Inventory Restock Predictor",
@@ -17,12 +18,18 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
+@app.on_event("startup")
+def startup() -> None:
+    init_db()
+
+
 def analyze_products(products):
     predictions = [predict_product(product) for product in products]
     restock_count = sum(item.needs_restock for item in predictions)
     critical_count = sum(item.urgency == "critical" for item in predictions)
     increasing_count = sum(item.sales_trend == "increasing" for item in predictions)
-    return InventoryResponse(
+
+    response = InventoryResponse(
         products=predictions,
         summary={
             "total_products": len(predictions),
@@ -31,6 +38,8 @@ def analyze_products(products):
             "products_with_increasing_sales": increasing_count,
         },
     )
+    save_snapshot(response.model_dump())
+    return response
 
 
 @app.get("/", include_in_schema=False)
@@ -63,3 +72,16 @@ async def predict_csv(file: UploadFile = File(...)) -> InventoryResponse:
         raise HTTPException(status_code=400, detail="CSV must be UTF-8 encoded")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/history")
+def history(limit: int = 20) -> dict:
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
+    return {"snapshots": get_snapshots(limit)}
+
+
+@app.get("/history/latest")
+def latest_history() -> dict:
+    snapshot = get_latest_snapshot()
+    return {"snapshot": snapshot}
