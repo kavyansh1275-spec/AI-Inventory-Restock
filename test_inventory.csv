@@ -1,0 +1,16 @@
+name,current_stock,minimum_stock,daily_sales,lead_time_days,target_days,supplier
+Whey Protein,20,3,"3,4,5,5,6,7,7",4,14,Protein Supplier
+Creatine,35,8,"2,2,1,2,2,2,2",3,14,Supplement Supplier
+Shaker Bottle,100,20,"1,1,1,2,1,1,1",5,14,Gym Accessories
+Protein Bar,15,5,"2,3,3,4,4,5,5",3,14,Protein Supplier
+Pre Workout,8,4,"1,1,2,2,2,3,3",5,14,Supplement Supplier
+Resistance Band,50,10,"1,2,1,1,2,1,1",4,14,Gym Accessories
+Gym Gloves,12,5,"1,1,2,2,2,3,3",4,14,Fitness Gear
+Lifting Belt,25,8,"1,1,1,2,1,2,2",5,14,Fitness Gear
+Electrolyte Drink,18,6,"2,2,3,3,4,4,5",3,14,Beverage Supplier
+Energy Gel,60,15,"3,4,3,4,5,5,6",4,14,Sports Nutrition
+Yoga Mat,40,8,"1,2,1,1,2,2,1",6,21,Gym Accessories
+Skipping Rope,75,12,"2,2,3,2,3,2,3",5,14,Gym Accessories
+Foam Roller,30,7,"1,1,2,1,2,2,2",5,14,Recovery Supplier
+Mass Gainer,10,4,"1,2,2,2,3,3,4",5,14,Protein Supplier
+BCAA,22,5,"1,1,1,2,2,2,2",4,14,Supplement Supplier
