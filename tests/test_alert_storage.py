@@ -1,20 +1,20 @@
 import unittest
 from pathlib import Path
 
-from app import alert_storage
+from app import alert_storage, storage
 from app.models import ProductPrediction
 from app.monitor import build_alerts
 
 
 class AlertStorageTests(unittest.TestCase):
     def setUp(self):
-        self.original = alert_storage._connect
         self.db = Path("test_alerts.db")
-        alert_storage.DB_PATH = self.db
+        storage.DB_PATH = self.db
 
     def tearDown(self):
         if self.db.exists():
             self.db.unlink()
+        storage.DB_PATH = Path("inventory.db")
 
     def make_alert(self, urgency="critical", stock=5):
         prediction = ProductPrediction(
