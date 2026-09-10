@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from .alert_storage import get_active_fingerprints, persist_alerts, _fingerprint
+from .alert_storage import _fingerprint, get_active_fingerprints, persist_alerts
 from .data_source import CSVInventorySource
 from .monitor import build_monitoring_report
 from .notifier import notify_alerts
@@ -28,7 +28,17 @@ class AutomaticInventoryMonitor:
         report["alert_count"] = len(active)
         report["critical_count"] = sum(a["urgency"] == "critical" for a in active)
 
-        save_snapshot([p.model_dump() for p in predictions])
+        save_snapshot({
+            "products": [p.model_dump() for p in predictions],
+            "summary": {
+                "total_products": len(predictions),
+                "products_needing_restock": sum(p.needs_restock for p in predictions),
+                "critical_products": sum(p.urgency == "critical" for p in predictions),
+                "products_with_increasing_sales": sum(
+                    p.sales_trend == "increasing" for p in predictions
+                ),
+            },
+        })
 
         new_alerts = [
             alert for alert in active if _fingerprint(alert) not in previous_fingerprints
