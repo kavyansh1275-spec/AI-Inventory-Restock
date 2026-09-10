@@ -44,6 +44,7 @@ class ProductPrediction(BaseModel):
 class InventoryResponse(BaseModel):
     products: list[ProductPrediction]
     summary: dict
+    input_products: Optional[list[Product]] = None
 
 
 class SupplierOrderItem(BaseModel):
