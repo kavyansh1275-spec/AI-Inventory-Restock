@@ -15,7 +15,7 @@ from .models import (
 from .predictor import predict_product
 from .storage import get_latest_snapshot, get_snapshots, init_db, save_snapshot
 
-APP_VERSION = "0.5.0"
+APP_VERSION = "0.6.0"
 
 app = FastAPI(
     title="AI Inventory Restock Predictor",
@@ -85,6 +85,33 @@ def build_order_preview(predictions) -> OrderPreviewResponse:
     )
 
 
+def build_alerts(predictions) -> list[dict]:
+    alerts = []
+    for item in predictions:
+        if item.urgency == "critical":
+            alerts.append({
+                "level": "critical",
+                "product": item.name,
+                "message": f"{item.name} may run out during supplier lead time.",
+                "recommended_action": f"Order {item.suggested_reorder_quantity} units.",
+            })
+        elif item.urgency == "high":
+            alerts.append({
+                "level": "high",
+                "product": item.name,
+                "message": f"{item.name} is at or below its minimum stock.",
+                "recommended_action": f"Review an order for {item.suggested_reorder_quantity} units.",
+            })
+        elif item.sales_trend == "increasing" and item.needs_restock:
+            alerts.append({
+                "level": "medium",
+                "product": item.name,
+                "message": f"Sales for {item.name} are increasing while stock needs replenishment.",
+                "recommended_action": "Review the suggested reorder quantity soon.",
+            })
+    return alerts
+
+
 @app.get("/", include_in_schema=False)
 def root():
     return FileResponse("app/static/index.html")
@@ -121,6 +148,12 @@ async def predict_csv(file: UploadFile = File(...)) -> InventoryResponse:
 def order_preview(request: InventoryRequest) -> OrderPreviewResponse:
     predictions = [predict_product(product) for product in request.products]
     return build_order_preview(predictions)
+
+
+@app.post("/alerts")
+def alerts(request: InventoryRequest) -> dict:
+    predictions = [predict_product(product) for product in request.products]
+    return {"alerts": build_alerts(predictions)}
 
 
 @app.get("/history")
