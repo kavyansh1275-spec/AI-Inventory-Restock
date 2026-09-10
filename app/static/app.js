@@ -36,10 +36,30 @@ async function analyze() {
     if (!response.ok) throw new Error(await response.text());
     const data = await response.json();
     render(data);
-    await loadOrders();
-    await loadHistory();
+    await refreshIntelligence();
     setMessage("Analysis complete and saved locally.");
   } catch (error) { setMessage(`Analysis failed: ${error.message}`); }
+}
+
+async function refreshIntelligence() {
+  await Promise.all([loadAlerts(), loadOrders(), loadHistory()]);
+}
+
+async function loadAlerts() {
+  if (!products.length) return;
+  try {
+    const response = await fetch("/alerts", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({products})});
+    if (!response.ok) throw new Error(await response.text());
+    const data = await response.json();
+    const alerts = data.alerts || [];
+    $("alerts").innerHTML = alerts.length ? alerts.map(alert => `
+      <div class="alert-card ${esc(alert.level)}">
+        <div class="alert-top"><span class="badge ${esc(alert.level)}">${esc(alert.level)}</span><strong>${esc(alert.product)}</strong></div>
+        <p>${esc(alert.message)}</p><small>${esc(alert.recommended_action)}</small>
+      </div>`).join("") : '<p class="empty">No active inventory alerts.</p>';
+  } catch (error) {
+    $("alerts").innerHTML = '<p class="empty">Could not load alerts.</p>';
+  }
 }
 
 async function loadOrders() {
@@ -63,7 +83,7 @@ async function loadOrders() {
     }
     $("orders").innerHTML = html;
   } catch (error) {
-    $("orders").innerHTML = `<p class="empty">Could not load order preview.</p>`;
+    $("orders").innerHTML = '<p class="empty">Could not load order preview.</p>';
   }
 }
 
@@ -74,8 +94,9 @@ async function loadHistory() {
     const data = await response.json();
     const snapshots = data.snapshots || [];
     $("history").innerHTML = snapshots.length ? snapshots.map(snapshot => {
-      const summary = snapshot.products?.summary || {};
-      const productsSaved = Array.isArray(snapshot.products?.products) ? snapshot.products.products.length : 0;
+      const saved = snapshot.products || {};
+      const summary = saved.summary || {};
+      const productsSaved = Array.isArray(saved.products) ? saved.products.length : 0;
       return `<div class="history-item"><div><strong>Analysis #${snapshot.id}</strong><small>${esc(snapshot.created_at)}</small></div><span>${productsSaved} products · ${summary.products_needing_restock ?? 0} restock</span></div>`;
     }).join("") : '<p class="empty">No saved analyses yet.</p>';
   } catch (error) {
@@ -86,15 +107,16 @@ async function loadHistory() {
 $("sampleBtn").addEventListener("click", () => {
   products = structuredClone(sampleProducts);
   render({products: [], summary: {}});
+  $("alerts").innerHTML = '<p class="empty">Analyze inventory to generate alerts.</p>';
   $("orders").innerHTML = '<p class="empty">Analyze inventory to generate an order preview.</p>';
   setMessage("Sample data loaded. Click Analyze inventory.");
 });
 
 $("analyzeBtn").addEventListener("click", analyze);
 $("refreshBtn").addEventListener("click", async () => {
-  setMessage("Refreshing history...");
+  setMessage("Refreshing dashboard...");
   await loadHistory();
-  if (products.length) await loadOrders();
+  if (products.length) await refreshIntelligence();
   setMessage("Dashboard refreshed.");
 });
 
@@ -108,8 +130,7 @@ $("csvInput").addEventListener("change", async event => {
     if (!response.ok) throw new Error(await response.text());
     const data = await response.json();
     render(data);
-    await loadOrders();
-    await loadHistory();
+    await refreshIntelligence();
     setMessage("CSV analyzed and saved successfully.");
   } catch (error) { setMessage(`CSV import failed: ${error.message}`); }
 });
