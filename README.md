@@ -8,23 +8,24 @@ Given product stock and recent sales history, the system estimates:
 
 - average daily sales
 - days of stock remaining
-- whether the product needs restocking
+- reorder point
 - suggested reorder quantity
-- a simple urgency level
+- restock status
+- urgency level
 
-The first version is intentionally deterministic and does not require a paid AI API. This makes it easy to test locally and validate with real businesses before adding external integrations.
+The MVP is intentionally deterministic and requires **no paid AI API**. This keeps the first version free to build and easy to validate with real businesses.
 
-## MVP input
+## Dashboard
 
-The API accepts products with:
+The project includes a simple browser dashboard with:
 
-- product name
-- current stock
-- minimum stock level
-- recent daily sales
-- optional supplier information
+- inventory summary cards
+- product-level restock analysis
+- sample data
+- CSV import
+- responsive layout
 
-## Run locally
+Run it locally:
 
 ```bash
 python -m venv .venv
@@ -34,9 +35,25 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-Open `http://127.0.0.1:8000/docs` for the interactive API.
+Then open `http://127.0.0.1:8000/` for the dashboard or `http://127.0.0.1:8000/docs` for the API.
 
-## Example
+## CSV format
+
+Use these columns:
+
+```text
+name,current_stock,minimum_stock,daily_sales,lead_time_days,target_days,supplier
+```
+
+`daily_sales` is a quoted, comma-separated list of recent daily unit sales, for example `"3,4,2,3,5"`.
+
+A ready-to-test file is included as `sample_inventory.csv`.
+
+## API
+
+### JSON prediction
+
+`POST /predict`
 
 ```json
 {
@@ -45,12 +62,38 @@ Open `http://127.0.0.1:8000/docs` for the interactive API.
       "name": "Protein Powder",
       "current_stock": 18,
       "minimum_stock": 10,
-      "daily_sales": [3, 4, 2, 3, 5, 3, 4]
+      "daily_sales": [3, 4, 2, 3, 5, 3, 4],
+      "lead_time_days": 5,
+      "target_days": 14,
+      "supplier": "Fitness Supply Co."
     }
   ]
 }
 ```
 
+### CSV prediction
+
+`POST /predict/csv` accepts a `.csv` upload and returns the same structured prediction response.
+
+### Health
+
+`GET /health` returns the service health and version.
+
+## Testing
+
+```bash
+python -m unittest discover -s tests -v
+```
+
 ## Design principle
 
-This is a standalone product. It does not depend on the `AI-Workflow-Orchestrator` repository at runtime, even though useful engineering patterns can be reused from that project.
+This is a **standalone product**. It does not depend on the `AI-Workflow-Orchestrator` repository at runtime, even though useful engineering patterns can be reused from that project.
+
+## Roadmap
+
+1. Free local MVP dashboard + CSV analysis — current
+2. Better forecasting with sales trends and variability
+3. Inventory history and saved products
+4. Supplier/order workflow
+5. Optional AI explanations
+6. Business integrations after validation
