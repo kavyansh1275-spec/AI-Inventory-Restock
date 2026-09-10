@@ -1,6 +1,5 @@
 import hashlib
 import json
-import sqlite3
 from datetime import datetime, timezone
 from typing import Any
 
@@ -41,6 +40,15 @@ def _fingerprint(alert: dict[str, Any]) -> str:
         "supplier": alert["supplier"],
     }
     return hashlib.sha256(json.dumps(stable, sort_keys=True).encode()).hexdigest()
+
+
+def get_active_fingerprints() -> set[str]:
+    init_alerts_db()
+    with _connect() as connection:
+        rows = connection.execute(
+            "SELECT fingerprint FROM inventory_alerts WHERE active=1"
+        ).fetchall()
+    return {row["fingerprint"] for row in rows}
 
 
 def persist_alerts(alerts: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -92,7 +100,13 @@ def get_active_alerts() -> list[dict[str, Any]]:
         rows = connection.execute(
             "SELECT * FROM inventory_alerts WHERE active=1 ORDER BY CASE urgency WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, product"
         ).fetchall()
-    return [json.loads(row["payload_json"]) | {"id": row["id"], "first_seen": row["first_seen"], "last_seen": row["last_seen"]} for row in rows]
+    return [
+        json.loads(row["payload_json"]) | {
+            "id": row["id"], "first_seen": row["first_seen"],
+            "last_seen": row["last_seen"],
+        }
+        for row in rows
+    ]
 
 
 def get_alert_history(limit: int = 50) -> list[dict[str, Any]]:
