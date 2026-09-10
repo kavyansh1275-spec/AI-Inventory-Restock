@@ -12,7 +12,7 @@
       <div>
         <p class="eyebrow">INVENTORY INTELLIGENCE</p>
         <h1>Restock Predictor</h1>
-        <p class="subtitle">Monitor stock risk, supplier orders and previous inventory analyses.</p>
+        <p class="subtitle">Monitor stock risk, supplier orders, alerts and previous inventory analyses.</p>
       </div>
       <div class="status"><span></span> Local engine</div>
     </header>
@@ -21,7 +21,7 @@
       <button id="sampleBtn">Load sample data</button>
       <label class="file-button">Import CSV<input id="csvInput" type="file" accept=".csv"></label>
       <button id="analyzeBtn" class="primary">Analyze inventory</button>
-      <button id="refreshBtn">Refresh history</button>
+      <button id="refreshBtn">Refresh dashboard</button>
     </section>
 
     <p id="message" class="message"></p>
@@ -46,7 +46,12 @@
       </div>
     </section>
 
-    <section class="two-column">
+    <section class="three-column">
+      <div class="panel">
+        <div class="panel-head"><div><h2>Alerts</h2><p>Prioritized inventory actions.</p></div></div>
+        <div id="alerts" class="panel-body"><p class="empty">Analyze inventory to generate alerts.</p></div>
+      </div>
+
       <div class="panel">
         <div class="panel-head"><div><h2>Supplier order preview</h2><p>Prepared orders require manual confirmation.</p></div></div>
         <div id="orders" class="panel-body"><p class="empty">Analyze inventory to generate an order preview.</p></div>
