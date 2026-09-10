@@ -5,34 +5,35 @@ const sampleProducts = [
   {name: "Yoga Mat", current_stock: 70, minimum_stock: 20, daily_sales: [2,2,3,2,3,2,2], lead_time_days: 7, target_days: 14, supplier: "Active Gear"}
 ];
 
-let products = [];
+let inputProducts = [];
+let predictions = [];
 const $ = id => document.getElementById(id);
 
 function setMessage(text) { $("message").textContent = text; }
 function esc(value) { return String(value ?? "").replace(/[&<>\"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
 function render(data) {
-  products = data.products || [];
+  predictions = data.products || [];
   const summary = data.summary || {};
-  $("total").textContent = summary.total_products ?? products.length;
+  $("total").textContent = summary.total_products ?? predictions.length;
   $("restock").textContent = summary.products_needing_restock ?? 0;
   $("critical").textContent = summary.critical_products ?? 0;
-  $("healthy").textContent = products.filter(p => !p.needs_restock).length;
-  $("productCount").textContent = `${products.length} product${products.length === 1 ? "" : "s"}`;
-  $("tableBody").innerHTML = products.length ? products.map(p => `
+  $("healthy").textContent = predictions.filter(p => !p.needs_restock).length;
+  $("productCount").textContent = `${predictions.length} product${predictions.length === 1 ? "" : "s"}`;
+  $("tableBody").innerHTML = predictions.length ? predictions.map(p => `
     <tr><td>${esc(p.name)}</td><td>${p.current_stock}</td><td>${p.average_daily_sales}</td>
     <td>${p.days_remaining == null ? "—" : p.days_remaining}</td><td>${p.reorder_point}</td>
     <td>${p.suggested_reorder_quantity}</td><td><span class="badge ${esc(p.urgency)}">${esc(p.urgency)}</span></td></tr>`).join("") : '<tr><td colspan="7" class="empty">No products found.</td></tr>';
 }
 
 async function postJSON(url) {
-  const response = await fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({products})});
+  const response = await fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({products: inputProducts})});
   if (!response.ok) throw new Error(await response.text());
   return response.json();
 }
 
 async function analyze() {
-  if (!products.length) { setMessage("Load sample data or import a CSV first."); return; }
+  if (!inputProducts.length) { setMessage("Load sample data or import a CSV first."); return; }
   setMessage("Analyzing inventory...");
   try {
     render(await postJSON("/predict"));
@@ -46,7 +47,7 @@ async function refreshIntelligence() {
 }
 
 async function loadAlerts() {
-  if (!products.length) return;
+  if (!inputProducts.length) return;
   try {
     const data = await postJSON("/alerts");
     const report = data.alerts || {};
@@ -58,7 +59,7 @@ async function loadAlerts() {
 }
 
 async function loadOrders() {
-  if (!products.length) return;
+  if (!inputProducts.length) return;
   try {
     const data = await postJSON("/orders/preview");
     const orders = data.orders || [];
@@ -83,18 +84,27 @@ async function loadHistory() {
 }
 
 $("sampleBtn").addEventListener("click", () => {
-  products = structuredClone(sampleProducts); render({products: [], summary: {}});
+  inputProducts = structuredClone(sampleProducts);
+  predictions = [];
+  render({products: [], summary: {}});
   $("alerts").innerHTML = '<p class="empty">Analyze inventory to generate alerts.</p>';
   $("orders").innerHTML = '<p class="empty">Analyze inventory to generate an order preview.</p>';
   setMessage("Sample data loaded. Click Analyze inventory.");
 });
 $("analyzeBtn").addEventListener("click", analyze);
-$("refreshBtn").addEventListener("click", async () => { setMessage("Refreshing dashboard..."); await loadHistory(); if (products.length) await refreshIntelligence(); setMessage("Dashboard refreshed."); });
+$("refreshBtn").addEventListener("click", async () => { setMessage("Refreshing dashboard..."); await loadHistory(); if (inputProducts.length) await refreshIntelligence(); setMessage("Dashboard refreshed."); });
 $("csvInput").addEventListener("change", async event => {
   const file = event.target.files[0]; if (!file) return;
   const form = new FormData(); form.append("file", file); setMessage("Reading CSV...");
-  try { const response = await fetch("/predict/csv", {method: "POST", body: form}); if (!response.ok) throw new Error(await response.text()); render(await response.json()); await refreshIntelligence(); setMessage("CSV analyzed and saved successfully."); }
-  catch (error) { setMessage(`CSV import failed: ${error.message}`); }
+  try {
+    const response = await fetch("/predict/csv", {method: "POST", body: form});
+    if (!response.ok) throw new Error(await response.text());
+    const data = await response.json();
+    inputProducts = data.input_products || inputProducts;
+    render(data);
+    await refreshIntelligence();
+    setMessage("CSV analyzed and saved successfully.");
+  } catch (error) { setMessage(`CSV import failed: ${error.message}`); }
 });
 
 loadHistory();
