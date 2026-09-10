@@ -23,10 +23,14 @@ def parse_inventory_csv(text: str) -> list[dict[str, Any]]:
     products = []
     for row_number, row in enumerate(reader, start=2):
         raw_sales = (row.get("daily_sales") or "").strip()
+        # Accept the documented comma format and older pipe-separated files.
+        separator = "," if "," in raw_sales else "|"
         try:
-            sales = [float(item.strip()) for item in raw_sales.split(",") if item.strip()]
+            sales = [float(item.strip()) for item in raw_sales.split(separator) if item.strip()]
         except ValueError:
-            raise ValueError(f"Row {row_number}: daily_sales must be comma-separated numbers")
+            raise ValueError(
+                f"Row {row_number}: daily_sales must be comma- or pipe-separated numbers"
+            )
         if not sales:
             raise ValueError(f"Row {row_number}: daily_sales cannot be empty")
 
