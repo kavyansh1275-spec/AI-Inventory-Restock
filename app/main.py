@@ -4,6 +4,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from .alert_storage import get_active_alerts, get_alert_history, init_alerts_db, persist_alerts
 from .csv_parser import parse_inventory_csv
 from .models import (
     InventoryRequest,
@@ -16,7 +17,7 @@ from .monitor import build_monitoring_report
 from .predictor import predict_product
 from .storage import get_latest_snapshot, get_snapshots, init_db, save_snapshot
 
-APP_VERSION = "0.7.0"
+APP_VERSION = "0.8.0"
 
 app = FastAPI(
     title="AI Inventory Restock Predictor",
@@ -30,6 +31,7 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 @app.on_event("startup")
 def startup() -> None:
     init_db()
+    init_alerts_db()
 
 
 def analyze_products(products):
@@ -127,7 +129,24 @@ def order_preview(request: InventoryRequest) -> OrderPreviewResponse:
 @app.post("/alerts")
 def alerts(request: InventoryRequest) -> dict:
     predictions = [predict_product(product) for product in request.products]
-    return {"alerts": build_monitoring_report(predictions)}
+    report = build_monitoring_report(predictions)
+    active = persist_alerts(report["alerts"])
+    report["alerts"] = active
+    report["alert_count"] = len(active)
+    report["critical_count"] = sum(item["urgency"] == "critical" for item in active)
+    return {"alerts": report}
+
+
+@app.get("/alerts/active")
+def active_alerts() -> dict:
+    return {"alerts": get_active_alerts()}
+
+
+@app.get("/alerts/history")
+def alert_history(limit: int = 50) -> dict:
+    if limit < 1 or limit > 500:
+        raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
+    return {"alerts": get_alert_history(limit)}
 
 
 @app.get("/history")
