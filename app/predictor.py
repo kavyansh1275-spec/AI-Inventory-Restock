@@ -29,7 +29,7 @@ def predict_product(product: Product) -> ProductPrediction:
     recent_window = min(3, len(sales))
     recent_sales = sales[-recent_window:]
     recent_daily_sales = sum(recent_sales) / recent_window
-    forecast_daily_sales = _weighted_demand(sales)
+    weighted_demand = _weighted_demand(sales)
     variability = _sales_std(sales, average_daily_sales)
 
     if average_daily_sales == 0:
@@ -42,19 +42,18 @@ def predict_product(product: Product) -> ProductPrediction:
         trend = "stable"
 
     # Blend long-term history with recent weighted demand.
-    forecast_daily_sales = (average_daily_sales * 0.4) + (forecast_daily_sales * 0.6)
+    forecast_daily_sales = (average_daily_sales * 0.4) + (weighted_demand * 0.6)
     safety_stock = variability * math.sqrt(max(product.lead_time_days, 1))
 
     if forecast_daily_sales > 0:
         days_remaining = product.current_stock / forecast_daily_sales
-        reorder_point = max(
-            product.minimum_stock,
-            forecast_daily_sales * product.lead_time_days + safety_stock,
-        )
+        lead_time_demand = forecast_daily_sales * product.lead_time_days
+        reorder_point = max(product.minimum_stock, lead_time_demand + safety_stock)
         target_stock = forecast_daily_sales * (product.lead_time_days + product.target_days) + safety_stock
         suggested_quantity = max(0, target_stock - product.current_stock)
     else:
         days_remaining = None
+        lead_time_demand = 0
         reorder_point = product.minimum_stock
         suggested_quantity = 0
 
@@ -62,9 +61,10 @@ def predict_product(product: Product) -> ProductPrediction:
         days_remaining is not None and days_remaining <= product.lead_time_days
     )
 
+    # Critical means the current stock is not safely sufficient for supplier lead time.
     if forecast_daily_sales == 0:
         urgency = "none"
-    elif days_remaining is not None and days_remaining <= product.lead_time_days:
+    elif product.current_stock <= lead_time_demand + safety_stock:
         urgency = "critical"
     elif product.current_stock <= product.minimum_stock:
         urgency = "high"
