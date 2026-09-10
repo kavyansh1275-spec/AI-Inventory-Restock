@@ -36,7 +36,14 @@ td:first-child { font-weight: 700; }
 .badge.medium { background: #fff7d6; color: #806600; }
 .badge.low, .badge.none { background: #e9f7ef; color: #27734a; }
 .empty { text-align: center; color: #8a94a6; padding: 28px; }
-.two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+.three-column { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-top: 14px; align-items: start; }
+.alert-card { border: 1px solid #e5e9f0; border-radius: 10px; padding: 13px; margin-bottom: 10px; }
+.alert-card.critical { border-left: 4px solid #c2413b; }
+.alert-card.high { border-left: 4px solid #b7791f; }
+.alert-card.medium { border-left: 4px solid #806600; }
+.alert-top { display: flex; align-items: center; gap: 8px; }
+.alert-card p { margin: 9px 0 5px; font-size: 13px; line-height: 1.45; }
+.alert-card small { color: #69758a; }
 .order-card { border: 1px solid #e5e9f0; border-radius: 10px; padding: 14px; margin-bottom: 10px; }
 .order-head, .order-item, .history-item { display: flex; justify-content: space-between; gap: 15px; align-items: center; }
 .order-head { margin-bottom: 10px; }
@@ -45,10 +52,11 @@ td:first-child { font-weight: 700; }
 .order-card small, .notice small, .history-item small { display: block; color: #7a8496; font-size: 11px; margin-top: 7px; }
 .notice { border: 1px solid #f0d8a8; background: #fffaf0; border-radius: 10px; padding: 13px; }
 .notice p { margin: 5px 0 0; font-size: 13px; }
-.history-list { max-height: 320px; overflow-y: auto; }
+.history-list { max-height: 420px; overflow-y: auto; }
 .history-item { padding: 13px 20px; border-bottom: 1px solid #edf0f5; font-size: 12px; }
 .history-item strong { display: block; font-size: 13px; }
 .history-item small { margin-top: 3px; }
 .history-item > span { color: #68738a; white-space: nowrap; }
-@media (max-width: 800px) { .cards { grid-template-columns: repeat(2, 1fr); } .two-column { grid-template-columns: 1fr; } header { flex-direction: column; } }
+@media (max-width: 1000px) { .three-column { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 800px) { .cards { grid-template-columns: repeat(2, 1fr); } .three-column { grid-template-columns: 1fr; } header { flex-direction: column; } }
 @media (max-width: 480px) { .cards { grid-template-columns: 1fr 1fr; } .container { padding: 25px 13px; } .history-item { align-items: flex-start; flex-direction: column; } }
