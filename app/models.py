@@ -1,4 +1,5 @@
 from typing import Optional
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -43,3 +44,22 @@ class ProductPrediction(BaseModel):
 class InventoryResponse(BaseModel):
     products: list[ProductPrediction]
     summary: dict
+
+
+class SupplierOrderItem(BaseModel):
+    product: str
+    supplier: str
+    quantity: float
+    urgency: str
+
+
+class SupplierOrderPreview(BaseModel):
+    supplier: str
+    items: list[SupplierOrderItem]
+    total_units: float
+    requires_manual_confirmation: bool = True
+
+
+class OrderPreviewResponse(BaseModel):
+    orders: list[SupplierOrderPreview]
+    products_without_supplier: list[str]
