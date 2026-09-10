@@ -28,6 +28,10 @@ class ProductPrediction(BaseModel):
     current_stock: float
     minimum_stock: float
     average_daily_sales: float
+    recent_daily_sales: float
+    sales_trend: str
+    sales_variability: float
+    safety_stock: float
     days_remaining: Optional[float]
     reorder_point: float
     suggested_reorder_quantity: float
